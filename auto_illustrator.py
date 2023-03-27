@@ -17,7 +17,9 @@ start_time = time.time()
 
 class AutoIllustrator:
 
-    def __init__(self, gpt_key, sd_host, use_horde, horde_api_key):
+    def __init__(self, gpt_key, sd_host, use_horde, horde_api_key, tk_root, tk_label):
+        self.tk_root = tk_root
+        self.tk_label = tk_label
         self.gpt_model = 'gpt-3.5-turbo'
         self.min_probability_for_gen = 4
 
@@ -35,6 +37,9 @@ class AutoIllustrator:
         audio_thread = threading.Thread(target=self.start_listen_thread, daemon=True)
         audio_thread.start()
 
+        image_prompt_thread = threading.Thread(target=self.start_prompt_thread, daemon=True)
+        image_prompt_thread.start()
+
 
     def get_image_prompt_from_gpt(self, recent_text):
         """
@@ -50,16 +55,15 @@ class AutoIllustrator:
             frequency_penalty=0,
             messages=[
                 # {"role": "system", "content": "Your job is to interpret a raw recorded and poorly transcribed conversation. You will determine if the conversation has enough information to visually describe the surroundings. You can write prompts that visually describe the surroundings based on the conversation."},
-                {"role": "user", "content": f"""The following is a raw recorded conversation between players in a DND campaign. Note that there is no punctuation and some of the words may have been transcribed incorrectly.
-    Conversation: "{recent_text}"
+                {"role": "user", "content": f"""The following is a raw recorded conversation between several people. Note that there is no punctuation and some of the words may have been transcribed incorrectly.
+Conversation: "{recent_text}"
 
-    Determine if the conversation has enough information to visually describe the current scene in the campaign. Disregard unrelated dialog or meaningless words.
-    Respond with a json object with a field "probability" which is the probability that this conversation can be used to create a visual image (from 0 to 10). Also include a field "prompt" which is a description of the image that represents what the players are seeing for Dalle2 image generation.
-    For the prompt, do not describe the players unless they are specifically talking about themselves. Only describe things you are confident are being discussed. The prompt should be terse, only include visual information, and not try to describe too many things.
-    Example:
-    {{"probability": 6, "prompt": "An illustration of a huge wolf, red eyes"}}
-    Reply with only the json object
-    """
+Determine if the conversation has enough information to visually describe the surroundings of the people. Disregard unrelated dialog or meaningless words.
+Respond with a json object with a field "probability" which is the probability that this conversation can be used to create a visual image (from 0 to 10). Also include a field "prompt" which is a description of the image that represents what the players are seeing for Dalle2 image generation.
+For the prompt, do not describe the people unless they are specifically talking about themselves. The prompt should be terse, only include visual information, and not try to describe too many things.
+Example:
+{{"probability": 6, "prompt": "An illustration of a huge wolf, red eyes"}}
+Reply with only the json object"""
                 }
             ]
         )
@@ -91,13 +95,14 @@ class AutoIllustrator:
         """
         Displays an image in a new window using tk
         """
+        if not self.tk_root.winfo_exists():
+            print('Window has closed')
+            quit()
         if image:
-            root = tk.Tk()
             tk_image = ImageTk.PhotoImage(image)
-            label = tk.Label(root, image=tk_image)
-            label.pack()
-            # TODO: make async
-            root.mainloop()
+            self.tk_label.configure(image=tk_image)
+            # keep a reference to the image object to avoid garbage collection
+            self.tk_label.image = tk_image
 
     @staticmethod
     def listen_callback(instance, data):
@@ -132,10 +137,10 @@ class AutoIllustrator:
         r.listen_in_background(source, AutoIllustrator.listen_callback, phrase_time_limit=10)
         logging.info('Started audio thread listening')
 
-    def start_process_text_loop(self):
+    def start_prompt_thread(self):
         """
         Main thread that syncronously uses gpt to check if the recent text is a valid image
-        If it is, creates and displays the image
+        If it is, creates and displays the image async in the tk window
         """
         global all_text
         time.sleep(20)
@@ -146,8 +151,7 @@ class AutoIllustrator:
                 logging.info(f'Checking prompt for recent text: {recent_text}')
                 prompt = self.get_image_prompt_from_gpt(recent_text)
                 if prompt:
-                    image = self.prompt_image(prompt)
-                    self.display_image(image)
+                    self.prompt_image(prompt)
                 else:
                     time.sleep(15)
 
@@ -170,5 +174,12 @@ if __name__ == '__main__':
     if not gpt_key:
         raise Exception('GPT API key is required ither from --api-key or env var OPENAI_API_KEY')
 
-    illustrator = AutoIllustrator(gpt_key, args.sd_host, args.use_horde, args.horde_api_key)
-    illustrator.start_process_text_loop()
+    # create a root window
+    tk_root = tk.Tk()
+    # create a label to display the image
+    tk_label = tk.Label(tk_root)
+    tk_label.pack()
+
+    illustrator = AutoIllustrator(gpt_key, args.sd_host, args.use_horde, args.horde_api_key, tk_root, tk_label)
+
+    tk_root.mainloop()

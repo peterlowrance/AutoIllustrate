@@ -4,6 +4,8 @@ Listens to the conversation and attempts to generate images using GPT and Stable
 ### To run
 Run ./start.sh to run the program (sets up python venv and runs)
 
+Get the openai key: https://platform.openai.com/account/api-keys
+
 Examples:
 Using https://github.com/AUTOMATIC1111/stable-diffusion-webui
 `./start.sh --api-key <OPENAI_API_KEY> --sd-host <YOUR_AUTOMATIC1111_URL>`
