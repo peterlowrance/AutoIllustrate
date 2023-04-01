@@ -46,41 +46,48 @@ class AutoIllustrator:
         Asks GPT if the recent text is enough to describe a visual image.
         If it is, returns a prompt for generating the image
         """
-        completion = openai.ChatCompletion.create(
-            model=self.gpt_model,
-            temperature=0.6,
-            top_p=1,
-            max_tokens=255,
-            presence_penalty=0,
-            frequency_penalty=0,
-            messages=[
-                # {"role": "system", "content": "Your job is to interpret a raw recorded and poorly transcribed conversation. You will determine if the conversation has enough information to visually describe the surroundings. You can write prompts that visually describe the surroundings based on the conversation."},
-                {"role": "user", "content": f"""The following is a raw recorded conversation between several people. Note that there is no punctuation and some of the words may have been transcribed incorrectly.
-Conversation: "{recent_text}"
 
-Determine if the conversation has enough information to visually describe the surroundings of the people. Disregard unrelated dialog or meaningless words.
-Respond with a json object with a field "probability" which is the probability that this conversation can be used to create a visual image (from 0 to 10). Also include a field "prompt" which is a description of the image that represents what the players are seeing for Dalle2 image generation.
-For the prompt, do not describe the people unless they are specifically talking about themselves. The prompt should be terse, only include visual information, and not try to describe too many things.
-Example:
-{{"probability": 6, "prompt": "An illustration of a huge wolf, red eyes"}}
-Reply with only the json object"""
-                }
-            ]
-        )
-        res = completion.choices[0].message.to_dict()['content']
-        start = res.find("{")
-        end = res.rfind("}") + 1
-        # Extract the json substring
-        data_str = res[start:end]
         try:
-            data_dict = json.loads(data_str)
-            prompt = data_dict['prompt']
-            probability = int(data_dict['probability'])
-            logging.info(f'Probability: {probability}. Prompt: {prompt}')
-            if probability >= self.min_probability_for_gen:
-                return prompt
-        except:
-            logging.error('Failed to parse ai result', res)
+            completion = openai.ChatCompletion.create(
+                model=self.gpt_model,
+                temperature=0.6,
+                top_p=1,
+                max_tokens=255,
+                presence_penalty=0,
+                frequency_penalty=0,
+                messages=[
+                    # {"role": "system", "content": "Your job is to interpret a raw recorded and poorly transcribed conversation. You will determine if the conversation has enough information to visually describe the surroundings. You can write prompts that visually describe the surroundings based on the conversation."},
+                    {"role": "user", "content": f"""The following is a raw recorded conversation between several people. Note that there is no punctuation and some of the words may have been transcribed incorrectly.
+    Conversation: "{recent_text}"
+
+    Determine if the conversation has enough information to visually describe the surroundings of the people. Disregard unrelated dialog or meaningless words.
+    Respond with a json object with a field "probability" which is the probability that this conversation can be used to create a visual image (from 0 to 10). Also include a field "prompt" which is a description of the image that represents what the players are seeing for Dalle2 image generation.
+    For the prompt, do not describe the people unless they are specifically talking about themselves. The prompt should be terse, only include visual information, and not try to describe too many things.
+    Example:
+    {{"probability": 9, "prompt": "An illustration of a huge wolf, red eyes"}}
+    Reply with only the json object"""
+                    }
+                ]
+            )
+
+            res = completion.choices[0].message.to_dict()['content']
+            start = res.find("{")
+            end = res.rfind("}") + 1
+            # Extract the json substring
+            data_str = res[start:end]
+            try:
+                data_dict = json.loads(data_str)
+                prompt = data_dict['prompt']
+                probability = int(data_dict['probability'])
+                logging.info(f'Probability: {probability}. Prompt: {prompt}')
+                if probability >= self.min_probability_for_gen:
+                    return prompt
+            except:
+                logging.error('Failed to parse ai result', res)
+
+        except Exception as e:
+            logging.error(e)
+
 
     def prompt_image(self, prompt):
         """
