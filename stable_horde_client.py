@@ -6,18 +6,19 @@ import io, base64
 import logging
 
 class HordeClient:
-    def __init__(self, api_key):
+    def __init__(self, api_key='0000000000'):
         self.api_key = api_key
         self.base_url = "https://stablehorde.net/api/v2"
         # List of models that can be used
-        preferred_models = ['stable_diffusion', 'Midjourney Diffusion', 'Darkest Diffusion']
-        # 2.1 doesn't work unless you have account
-        # preferred_models = ['stable_diffusion_2.1']
+        preferred_models = ['stable_diffusion', 'Midjourney Diffusion', 'Darkest Diffusion', 'Dungeons and Diffusion', 'Elden Ring Diffusion']
+        # 2.1 doesn't work unless you have account with kudos
+        # preferred_models = ['stable_diffusion_2.1', 'PIXHELL']
         self.models = self.get_models(preferred_models)
         if len(self.models) > 1:
             models_str = '\n'.join(f'{i}: {m}' for i, m in enumerate(self.models))
             choice = input(f"Choose a model:\n{models_str}\n")
             self.model = self.models[int(choice)]
+        self.hi_res = False
     
     def get_models(self, preferred_models) -> List[str]:
         models_url = f"{self.base_url}/status/models?type=image"
@@ -25,6 +26,7 @@ class HordeClient:
         models = response.json()
         res = []
         for m in models:
+            print(m)
             if m['name'] in preferred_models:
                 res.append(m['name'])
         if len(res) == 0:
@@ -42,8 +44,8 @@ class HordeClient:
                 4
                 ],
                 "cfg_scale": 7,
-                "height": 512, #768 if self.hi_res else 512,
-                "width": 512, #768 if self.hi_res else 512,
+                "height": 640 if self.hi_res else 512,
+                "width": 640 if self.hi_res else 512,
                 "steps": 18,
                 "n": 1
             },
